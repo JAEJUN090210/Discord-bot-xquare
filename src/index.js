@@ -39,8 +39,10 @@ client.once(Events.ClientReady, async (readyClient) => {
     activities: [{ name: 'Notion tasks & GitHub PRs', type: ActivityType.Watching }],
     status: 'online',
   });
-  await notifier.getChannel();
-  logger.info(`Notification channel ready: ${config.discord.channelId}`);
+  await notifier.prepareChannels();
+  logger.info(
+    `Notification channels ready: default=${config.discord.channelId}, notion=${config.discord.notionChannelId}, github=${config.discord.githubChannelId}`,
+  );
 
   if (notionWatcher) {
     startPoller('notion', config.notion.pollIntervalMs, () => pollNotion());
@@ -209,7 +211,7 @@ function createStatusMessage() {
 
   return [
     '**XQUARE 알림 봇 상태**',
-    `Discord 채널: <#${config.discord.channelId}>`,
+    `Discord 채널: 기본 <#${config.discord.channelId}> / Notion <#${config.discord.notionChannelId}> / GitHub <#${config.discord.githubChannelId}>`,
     `Notion: ${config.notion.enabled ? 'enabled' : 'disabled'} / 추적 태스크 ${notionCount}개 / 마지막 동기화 ${state.notion.lastPollAt ?? '-'}`,
     `GitHub: ${config.github.enabled ? 'enabled' : 'disabled'} / 저장소 ${repos} / 추적 PR ${prCount}개 / 마지막 동기화 ${state.github.lastPollAt ?? '-'}`,
   ].join('\n');

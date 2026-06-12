@@ -179,6 +179,9 @@ function inferSchema(database, notionConfig) {
   const priorityProperty =
     notionConfig.priorityProperty ||
     findByTypeOrName(entries, ['select', 'status'], ['priority', 'importance', '우선', '중요']);
+  const majorProperty =
+    notionConfig.majorProperty ||
+    findByTypeOrName(entries, ['select', 'multi_select', 'rich_text'], ['major', '전공']);
 
   return {
     databaseTitle: plainText(database.title),
@@ -187,6 +190,7 @@ function inferSchema(database, notionConfig) {
     assigneeProperty,
     dueDateProperty,
     priorityProperty,
+    majorProperty,
   };
 }
 
@@ -225,6 +229,7 @@ function createPageSnapshot(page, schema) {
       assignees: schema.assigneeProperty ? toArray(properties[schema.assigneeProperty]) : [],
       dueDate: schema.dueDateProperty ? properties[schema.dueDateProperty] : '',
       priority: schema.priorityProperty ? properties[schema.priorityProperty] : '',
+      major: schema.majorProperty ? properties[schema.majorProperty] : '',
     },
   };
 }

@@ -17,21 +17,39 @@ export class DiscordNotifier {
   constructor(client, config) {
     this.client = client;
     this.config = config;
-    this.channel = null;
+    this.channels = new Map();
   }
 
-  async getChannel() {
-    if (this.channel) {
-      return this.channel;
+  async prepareChannels() {
+    const channelIds = new Set([this.config.discord.channelId].filter(Boolean));
+
+    if (this.config.notion.enabled) {
+      channelIds.add(this.config.discord.notionChannelId);
     }
 
-    this.channel = await this.client.channels.fetch(this.config.discord.channelId);
-
-    if (!this.channel?.isTextBased()) {
-      throw new Error('DISCORD_CHANNEL_ID must point to a text based channel.');
+    if (this.config.github.enabled) {
+      channelIds.add(this.config.discord.githubChannelId);
     }
 
-    return this.channel;
+    await Promise.all([...channelIds].map((channelId) => this.getChannel(channelId)));
+  }
+
+  async getChannel(channelId = this.config.discord.channelId) {
+    const targetChannelId = channelId || this.config.discord.channelId;
+
+    if (this.channels.has(targetChannelId)) {
+      return this.channels.get(targetChannelId);
+    }
+
+    const channel = await this.client.channels.fetch(targetChannelId);
+
+    if (!channel?.isTextBased()) {
+      throw new Error(`Discord channel ${targetChannelId} must point to a text based channel.`);
+    }
+
+    this.channels.set(targetChannelId, channel);
+
+    return channel;
   }
 
   async sendEvent(event) {
@@ -47,9 +65,9 @@ export class DiscordNotifier {
   }
 
   async sendNotionEvent(event) {
-    const channel = await this.getChannel();
+    const channel = await this.getChannel(this.config.discord.notionChannelId);
     const embed = createNotionEmbed(event, this.config.app.timezone);
-    const content = this.config.discord.mentionOnNotion || undefined;
+    const content = resolveNotionMention(event, this.config) || undefined;
 
     return channel.send({
       content,
@@ -59,9 +77,9 @@ export class DiscordNotifier {
   }
 
   async sendGithubEvent(event) {
-    const channel = await this.getChannel();
+    const channel = await this.getChannel(this.config.discord.githubChannelId);
     const embed = createGithubEmbed(event, this.config.app.timezone);
-    const content = this.config.discord.mentionOnGithub || undefined;
+    const content = resolveGithubMention(event, this.config) || undefined;
 
     return channel.send({
       content,
@@ -75,7 +93,13 @@ export class DiscordNotifier {
       return undefined;
     }
 
-    const channel = await this.getChannel();
+    const channelId =
+      source === 'notion'
+        ? this.config.discord.notionChannelId
+        : source === 'github'
+          ? this.config.discord.githubChannelId
+          : this.config.discord.channelId;
+    const channel = await this.getChannel(channelId);
     const embed = new EmbedBuilder()
       .setColor(COLORS.error)
       .setTitle(`알림 봇 오류: ${source}`)
@@ -97,6 +121,52 @@ export class DiscordNotifier {
   }
 }
 
+function resolveNotionMention(event, config) {
+  if (event.type === 'notion_task_created') {
+    const major = event.snapshot?.highlights?.major ?? event.snapshot?.properties?.[config.notion.majorProperty];
+    const majorMention = resolveMappedMention(major, config.discord.notionMajorMentions);
+
+    if (majorMention) {
+      return majorMention;
+    }
+  }
+
+  return config.discord.mentionOnNotion;
+}
+
+function resolveGithubMention(event, config) {
+  const repoKey = event.repo?.key || event.snapshot?.repo || '';
+  return resolveMappedMention(repoKey, config.discord.githubRepositoryMentions) || config.discord.mentionOnGithub;
+}
+
+function resolveMappedMention(value, mentionMap) {
+  const values = Array.isArray(value) ? value : [value];
+  const mentions = values
+    .map((item) => findMention(String(item ?? '').trim(), mentionMap))
+    .filter(Boolean);
+
+  return [...new Set(mentions)].join(' ');
+}
+
+function findMention(key, mentionMap) {
+  if (!key) {
+    return '';
+  }
+
+  if (mentionMap[key]) {
+    return mentionMap[key];
+  }
+
+  const normalizedKey = key.toLowerCase();
+  const matchedKey = Object.keys(mentionMap).find((candidate) => candidate.toLowerCase() === normalizedKey);
+
+  return matchedKey ? mentionMap[matchedKey] : '';
+}
+
+function formatValue(value) {
+  return Array.isArray(value) ? formatList(value) : String(value || '-');
+}
+
 function createNotionEmbed(event, timezone) {
   const { snapshot } = event;
   const isCreated = event.type === 'notion_task_created';
@@ -112,6 +182,7 @@ function createNotionEmbed(event, timezone) {
       { name: '담당자', value: truncate(formatList(snapshot.highlights.assignees)), inline: true },
       { name: '마감일', value: truncate(snapshot.highlights.dueDate), inline: true },
       { name: '우선순위', value: truncate(snapshot.highlights.priority), inline: true },
+      { name: '전공', value: truncate(formatValue(snapshot.highlights.major)), inline: true },
       { name: '마지막 수정', value: formatDate(snapshot.lastEditedTime, timezone), inline: true },
       { name: '링크', value: compactUrl(snapshot.url), inline: true },
     )

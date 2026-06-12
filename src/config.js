@@ -42,6 +42,30 @@ function readOptionalJson(name) {
   }
 }
 
+function readStringMap(name) {
+  const parsed = readOptionalJson(name);
+
+  if (parsed == null) {
+    return {};
+  }
+
+  if (Array.isArray(parsed) || typeof parsed !== 'object') {
+    throw new Error(`${name} must be a JSON object.`);
+  }
+
+  return Object.fromEntries(
+    Object.entries(parsed)
+      .map(([key, value]) => {
+        if (typeof value !== 'string') {
+          throw new Error(`${name} values must be strings.`);
+        }
+
+        return [key.trim(), value.trim()];
+      })
+      .filter(([key, value]) => key && value),
+  );
+}
+
 function parseRepos() {
   const repositories = readList('GITHUB_REPOSITORIES');
 
@@ -64,6 +88,7 @@ export function loadConfig() {
   const githubRepos = parseRepos();
   const notionToken = process.env.NOTION_TOKEN ?? '';
   const notionDatabaseId = process.env.NOTION_DATABASE_ID ?? '';
+  const channelId = process.env.DISCORD_CHANNEL_ID ?? '';
 
   return {
     app: {
@@ -74,9 +99,13 @@ export function loadConfig() {
       token: process.env.DISCORD_TOKEN ?? '',
       clientId: process.env.DISCORD_CLIENT_ID ?? '',
       guildId: process.env.DISCORD_GUILD_ID ?? '',
-      channelId: process.env.DISCORD_CHANNEL_ID ?? '',
+      channelId,
+      notionChannelId: process.env.DISCORD_NOTION_CHANNEL_ID || channelId,
+      githubChannelId: process.env.DISCORD_GITHUB_CHANNEL_ID || channelId,
       mentionOnNotion: process.env.DISCORD_MENTION_ON_NOTION ?? '',
       mentionOnGithub: process.env.DISCORD_MENTION_ON_GITHUB ?? '',
+      notionMajorMentions: readStringMap('DISCORD_NOTION_MAJOR_MENTIONS_JSON'),
+      githubRepositoryMentions: readStringMap('DISCORD_GITHUB_REPOSITORY_MENTIONS_JSON'),
       notifyErrors: readBoolean('DISCORD_NOTIFY_ERRORS', true),
     },
     notion: {
@@ -92,6 +121,7 @@ export function loadConfig() {
       assigneeProperty: process.env.NOTION_ASSIGNEE_PROPERTY || '',
       dueDateProperty: process.env.NOTION_DUE_DATE_PROPERTY || '',
       priorityProperty: process.env.NOTION_PRIORITY_PROPERTY || '',
+      majorProperty: process.env.NOTION_MAJOR_PROPERTY || '전공',
       queryFilter: readOptionalJson('NOTION_QUERY_FILTER_JSON'),
       querySorts: readOptionalJson('NOTION_QUERY_SORTS_JSON'),
       maxPages: readNumber('NOTION_MAX_PAGES', 250),
