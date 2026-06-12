@@ -1,0 +1,20 @@
+{
+  "name": "xquare-discord-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun src/index.js",
+    "dev": "bun --watch src/index.js",
+    "register-commands": "bun src/registerCommands.js",
+    "check": "bun scripts/checkSyntax.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "tslib": "^2.8.1"
+  },
+  "engines": {
+    "bun": ">=1.0.0",
+    "node": ">=18.17.0"
+  }
+}
