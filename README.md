@@ -62,12 +62,12 @@ GitHub PR 알림을 쓰려면:
 DISCORD_NOTION_CHANNEL_ID=NOTION_CHANNEL_ID
 DISCORD_GITHUB_CHANNEL_ID=GITHUB_CHANNEL_ID
 
-NOTION_MAJOR_PROPERTY=전공
-DISCORD_NOTION_MAJOR_MENTIONS_JSON={"백엔드":"<@&BACKEND_ROLE_ID>","프론트엔드":"<@&FRONTEND_ROLE_ID>"}
-DISCORD_GITHUB_REPOSITORY_MENTIONS_JSON={"team-xquare/xquare-infra-frontend-v3":"<@&FRONTEND_ROLE_ID>","team-xquare/xquare-infra-backend-v3":"<@&BACKEND_ROLE_ID>"}
+NOTION_ASSIGNEE_PROPERTY=assign
+DISCORD_NOTION_ASSIGNEE_MENTIONS_JSON={"홍길동":"<@USER_ID>","김철수":"<@&ROLE_ID>"}
+DISCORD_GITHUB_REVIEWER_MENTIONS_JSON={"github-login":"<@USER_ID>","another-login":"<@&ROLE_ID>"}
 ```
 
-`DISCORD_NOTION_CHANNEL_ID`, `DISCORD_GITHUB_CHANNEL_ID`가 비어 있으면 기존 `DISCORD_CHANNEL_ID`로 보냅니다. Notion 멘션은 새 태스크가 추가될 때 `NOTION_MAJOR_PROPERTY` 값과 매칭되는 역할을 멘션하고, 매칭되는 값이 없으면 `DISCORD_MENTION_ON_NOTION`을 사용합니다. GitHub PR 멘션은 `owner/repo` 값과 매칭되는 역할을 우선 사용하고, 없으면 `DISCORD_MENTION_ON_GITHUB`를 사용합니다.
+`DISCORD_NOTION_CHANNEL_ID`, `DISCORD_GITHUB_CHANNEL_ID`가 비어 있으면 기존 `DISCORD_CHANNEL_ID`로 보냅니다. Notion 멘션은 새 태스크가 추가될 때 `NOTION_ASSIGNEE_PROPERTY`에 지정된 사람과 매칭되는 멘션을 사용하고, 매칭되는 값이 없으면 `DISCORD_MENTION_ON_NOTION`을 사용합니다. GitHub PR 멘션은 요청된 리뷰어의 GitHub 로그인과 매칭되는 멘션을 우선 사용하고, 없으면 `DISCORD_MENTION_ON_GITHUB`를 사용합니다.
 
 ## Discord 명령어 등록
 
@@ -106,7 +106,7 @@ bun.cmd run dev
 ```env
 NOTION_TITLE_PROPERTY=Name
 NOTION_STATUS_PROPERTY=Status
-NOTION_ASSIGNEE_PROPERTY=Assignee
+NOTION_ASSIGNEE_PROPERTY=assign
 NOTION_DUE_DATE_PROPERTY=Due
 NOTION_PRIORITY_PROPERTY=Priority
 ```

@@ -123,11 +123,13 @@ export class DiscordNotifier {
 
 function resolveNotionMention(event, config) {
   if (event.type === 'notion_task_created') {
-    const major = event.snapshot?.highlights?.major ?? event.snapshot?.properties?.[config.notion.majorProperty];
-    const majorMention = resolveMappedMention(major, config.discord.notionMajorMentions);
+    const assigneeMention = resolveMappedMention(
+      event.snapshot?.highlights?.assignees,
+      config.discord.notionAssigneeMentions,
+    );
 
-    if (majorMention) {
-      return majorMention;
+    if (assigneeMention) {
+      return assigneeMention;
     }
   }
 
@@ -135,8 +137,8 @@ function resolveNotionMention(event, config) {
 }
 
 function resolveGithubMention(event, config) {
-  const repoKey = event.repo?.key || event.snapshot?.repo || '';
-  return resolveMappedMention(repoKey, config.discord.githubRepositoryMentions) || config.discord.mentionOnGithub;
+  const reviewers = event.snapshot?.fields?.reviewers ?? [];
+  return resolveMappedMention(reviewers, config.discord.githubReviewerMentions) || config.discord.mentionOnGithub;
 }
 
 function resolveMappedMention(value, mentionMap) {
@@ -163,10 +165,6 @@ function findMention(key, mentionMap) {
   return matchedKey ? mentionMap[matchedKey] : '';
 }
 
-function formatValue(value) {
-  return Array.isArray(value) ? formatList(value) : String(value || '-');
-}
-
 function createNotionEmbed(event, timezone) {
   const { snapshot } = event;
   const isCreated = event.type === 'notion_task_created';
@@ -182,7 +180,6 @@ function createNotionEmbed(event, timezone) {
       { name: '담당자', value: truncate(formatList(snapshot.highlights.assignees)), inline: true },
       { name: '마감일', value: truncate(snapshot.highlights.dueDate), inline: true },
       { name: '우선순위', value: truncate(snapshot.highlights.priority), inline: true },
-      { name: '전공', value: truncate(formatValue(snapshot.highlights.major)), inline: true },
       { name: '마지막 수정', value: formatDate(snapshot.lastEditedTime, timezone), inline: true },
       { name: '링크', value: compactUrl(snapshot.url), inline: true },
     )
