@@ -1,0 +1,14 @@
+services:
+  xquare-discord-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: xquare-discord-bot:latest
+    container_name: xquare-discord-bot
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /app/data
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
