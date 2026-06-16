@@ -36,7 +36,7 @@ const pollers = [];
 client.once(Events.ClientReady, async (readyClient) => {
   logger.info(`Logged in as ${readyClient.user.tag}`);
   readyClient.user.setPresence({
-    activities: [{ name: 'Notion tasks & GitHub PRs', type: ActivityType.Watching }],
+    activities: [{ name: 'Notion tasks & GitHub PRs/issues', type: ActivityType.Watching }],
     status: 'online',
   });
   await notifier.prepareChannels();
@@ -207,13 +207,14 @@ function createStatusMessage() {
   const notionCount = Object.keys(state.notion.pages ?? {}).length;
   const repoStates = Object.entries(state.github.repos ?? {});
   const prCount = repoStates.reduce((total, [, repoState]) => total + Object.keys(repoState.prs ?? {}).length, 0);
+  const issueCount = repoStates.reduce((total, [, repoState]) => total + Object.keys(repoState.issues ?? {}).length, 0);
   const repos = config.github.repositories.map((repo) => repo.key).join(', ') || '-';
 
   return [
     '**XQUARE 알림 봇 상태**',
     `Discord 채널: 기본 <#${config.discord.channelId}> / Notion <#${config.discord.notionChannelId}> / GitHub <#${config.discord.githubChannelId}>`,
     `Notion: ${config.notion.enabled ? 'enabled' : 'disabled'} / 추적 태스크 ${notionCount}개 / 마지막 동기화 ${state.notion.lastPollAt ?? '-'}`,
-    `GitHub: ${config.github.enabled ? 'enabled' : 'disabled'} / 저장소 ${repos} / 추적 PR ${prCount}개 / 마지막 동기화 ${state.github.lastPollAt ?? '-'}`,
+    `GitHub: ${config.github.enabled ? 'enabled' : 'disabled'} / 저장소 ${repos} / 추적 PR ${prCount}개 / 추적 이슈 ${issueCount}개 / 마지막 동기화 ${state.github.lastPollAt ?? '-'}`,
   ].join('\n');
 }
 

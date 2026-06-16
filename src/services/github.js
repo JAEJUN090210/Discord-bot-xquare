@@ -15,7 +15,11 @@ export class GitHubWatcher {
     for (const repo of this.config.github.repositories) {
       const repoState = getRepoState(state, repo.key);
       const isFirstRun = !repoState.initialized;
-      const pulls = await this.fetchPullRequests(repo);
+      const isFirstIssueRun = !repoState.issuesInitialized;
+      const [pulls, issues] = await Promise.all([
+        this.fetchPullRequests(repo),
+        this.config.github.watchIssues ? this.fetchIssues(repo) : [],
+      ]);
 
       for (const listedPull of pulls) {
         const pull = await this.enrichPullRequestIfNeeded(repo, listedPull);
@@ -51,7 +55,41 @@ export class GitHubWatcher {
         }
       }
 
+      for (const issue of issues) {
+        const snapshot = createIssueSnapshot(repo, issue);
+        const previous = repoState.issues[issue.number];
+
+        if (!previous) {
+          repoState.issues[issue.number] = snapshot;
+
+          if (!isFirstIssueRun || notifyExisting || this.config.github.notifyExistingOnStart) {
+            events.push({
+              type: 'github_issue_opened',
+              repo,
+              snapshot,
+            });
+          }
+
+          continue;
+        }
+
+        if (previous.hash !== snapshot.hash) {
+          repoState.issues[issue.number] = snapshot;
+
+          if (this.config.github.notifyIssueUpdates) {
+            events.push({
+              type: classifyIssueChange(previous, snapshot),
+              repo,
+              snapshot,
+              previous,
+              changes: diffObjects(previous.fields, snapshot.fields),
+            });
+          }
+        }
+      }
+
       repoState.initialized = true;
+      repoState.issuesInitialized = this.config.github.watchIssues ? true : repoState.issuesInitialized;
       repoState.lastPollAt = now;
     }
 
@@ -66,6 +104,14 @@ export class GitHubWatcher {
     );
 
     return response;
+  }
+
+  async fetchIssues(repo) {
+    const response = await this.request(
+      `/repos/${repo.owner}/${repo.name}/issues?state=all&sort=updated&direction=desc&per_page=${this.config.github.perPage}`,
+    );
+
+    return response.filter((issue) => !issue.pull_request);
   }
 
   async enrichPullRequestIfNeeded(repo, pull) {
@@ -104,8 +150,14 @@ function getRepoState(state, repoKey) {
       initialized: false,
       lastPollAt: null,
       prs: {},
+      issuesInitialized: false,
+      issues: {},
     };
   }
+
+  state.github.repos[repoKey].prs ??= {};
+  state.github.repos[repoKey].issuesInitialized ??= false;
+  state.github.repos[repoKey].issues ??= {};
 
   return state.github.repos[repoKey];
 }
@@ -146,6 +198,41 @@ function createPullRequestSnapshot(repo, pull) {
   };
 }
 
+function createIssueSnapshot(repo, issue) {
+  const fields = {
+    title: issue.title,
+    state: issue.state,
+    stateReason: issue.state_reason ?? '',
+    locked: issue.locked ? 'locked' : '',
+    author: issue.user?.login ?? '',
+    labels: issue.labels?.map((label) => label.name).sort() ?? [],
+    assignees: issue.assignees?.map((user) => user.login).sort() ?? [],
+    milestone: issue.milestone?.title ?? '',
+    comments: issue.comments ?? 0,
+  };
+  const hash = createHash('sha256')
+    .update(JSON.stringify(fields))
+    .digest('hex');
+
+  return {
+    id: issue.id,
+    repo: repo.key,
+    number: issue.number,
+    title: issue.title,
+    url: issue.html_url,
+    apiUrl: issue.url,
+    state: issue.state,
+    stateReason: issue.state_reason ?? '',
+    locked: Boolean(issue.locked),
+    createdAt: issue.created_at,
+    updatedAt: issue.updated_at,
+    closedAt: issue.closed_at,
+    author: issue.user?.login ?? '',
+    fields,
+    hash,
+  };
+}
+
 function classifyPullRequestChange(previous, snapshot) {
   if (previous.fields.state !== snapshot.fields.state) {
     if (snapshot.fields.state === 'closed' && snapshot.fields.merged) {
@@ -170,4 +257,18 @@ function classifyPullRequestChange(previous, snapshot) {
   }
 
   return 'github_pr_updated';
+}
+
+function classifyIssueChange(previous, snapshot) {
+  if (previous.fields.state !== snapshot.fields.state) {
+    if (snapshot.fields.state === 'closed') {
+      return 'github_issue_closed';
+    }
+
+    if (snapshot.fields.state === 'open') {
+      return 'github_issue_reopened';
+    }
+  }
+
+  return 'github_issue_updated';
 }

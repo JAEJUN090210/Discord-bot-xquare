@@ -137,6 +137,15 @@ function resolveNotionMention(event, config) {
 }
 
 function resolveGithubMention(event, config) {
+  if (isGithubIssueEvent(event)) {
+    const assignees = event.snapshot?.fields?.assignees ?? [];
+    return (
+      resolveMappedMention(assignees, config.discord.githubIssueAssigneeMentions) ||
+      resolveMappedMention(assignees, config.discord.githubReviewerMentions) ||
+      config.discord.mentionOnGithub
+    );
+  }
+
   const reviewers = event.snapshot?.fields?.reviewers ?? [];
   return resolveMappedMention(reviewers, config.discord.githubReviewerMentions) || config.discord.mentionOnGithub;
 }
@@ -200,6 +209,14 @@ function createNotionEmbed(event, timezone) {
 }
 
 function createGithubEmbed(event, timezone) {
+  if (isGithubIssueEvent(event)) {
+    return createGithubIssueEmbed(event, timezone);
+  }
+
+  return createGithubPullRequestEmbed(event, timezone);
+}
+
+function createGithubPullRequestEmbed(event, timezone) {
   const { snapshot, repo } = event;
   const meta = githubEventMeta(event.type);
   const embed = new EmbedBuilder()
@@ -235,6 +252,45 @@ function createGithubEmbed(event, timezone) {
   return embed;
 }
 
+function createGithubIssueEmbed(event, timezone) {
+  const { snapshot, repo } = event;
+  const meta = githubEventMeta(event.type);
+  const state = snapshot.fields.stateReason
+    ? `${snapshot.state} / ${snapshot.fields.stateReason}`
+    : snapshot.state;
+  const embed = new EmbedBuilder()
+    .setColor(meta.color)
+    .setTitle(`${meta.title}: ${repo.key} #${snapshot.number}`)
+    .setURL(snapshot.url)
+    .setDescription(truncate(snapshot.title, 500))
+    .addFields(
+      { name: '작성자', value: truncate(snapshot.author), inline: true },
+      { name: '상태', value: truncate(state), inline: true },
+      { name: '댓글', value: truncate(String(snapshot.fields.comments ?? 0)), inline: true },
+      { name: '라벨', value: truncate(formatList(snapshot.fields.labels)), inline: true },
+      { name: '담당자', value: truncate(formatList(snapshot.fields.assignees)), inline: true },
+      { name: '마일스톤', value: truncate(snapshot.fields.milestone), inline: true },
+      { name: '업데이트', value: formatDate(snapshot.updatedAt, timezone), inline: true },
+      { name: '링크', value: compactUrl(snapshot.url), inline: true },
+    )
+    .setTimestamp(new Date(snapshot.updatedAt || Date.now()));
+
+  if (event.changes?.length) {
+    embed.addFields({
+      name: '변경사항',
+      value: truncate(
+        event.changes
+          .slice(0, 8)
+          .map((change) => `**${change.key}**: ${truncate(change.before, 180)} → ${truncate(change.after, 180)}`)
+          .join('\n'),
+        1000,
+      ),
+    });
+  }
+
+  return embed;
+}
+
 function githubEventMeta(type) {
   switch (type) {
     case 'github_pr_opened':
@@ -249,7 +305,19 @@ function githubEventMeta(type) {
       return { title: 'PR 리뷰 준비됨', color: COLORS.githubOpened };
     case 'github_pr_converted_to_draft':
       return { title: 'PR Draft 전환', color: COLORS.githubUpdated };
+    case 'github_issue_opened':
+      return { title: '새 이슈', color: COLORS.githubOpened };
+    case 'github_issue_closed':
+      return { title: '이슈 닫힘', color: COLORS.githubClosed };
+    case 'github_issue_reopened':
+      return { title: '이슈 다시 열림', color: COLORS.githubOpened };
+    case 'github_issue_updated':
+      return { title: '이슈 변경', color: COLORS.githubUpdated };
     default:
       return { title: 'PR 변경', color: COLORS.githubUpdated };
   }
+}
+
+function isGithubIssueEvent(event) {
+  return event.type.startsWith('github_issue_');
 }

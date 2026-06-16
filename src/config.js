@@ -106,6 +106,7 @@ export function loadConfig() {
       mentionOnGithub: process.env.DISCORD_MENTION_ON_GITHUB ?? '',
       notionAssigneeMentions: readStringMap('DISCORD_NOTION_ASSIGNEE_MENTIONS_JSON'),
       githubReviewerMentions: readStringMap('DISCORD_GITHUB_REVIEWER_MENTIONS_JSON'),
+      githubIssueAssigneeMentions: readStringMap('DISCORD_GITHUB_ISSUE_ASSIGNEE_MENTIONS_JSON'),
       notifyErrors: readBoolean('DISCORD_NOTIFY_ERRORS', true),
     },
     notion: {
@@ -132,6 +133,8 @@ export function loadConfig() {
       pollIntervalMs: readNumber('GITHUB_POLL_INTERVAL_MS', 60_000),
       notifyExistingOnStart: readBoolean('GITHUB_NOTIFY_EXISTING_ON_START', false),
       notifyPrUpdates: readBoolean('GITHUB_NOTIFY_PR_UPDATES', true),
+      notifyIssueUpdates: readBoolean('GITHUB_NOTIFY_ISSUE_UPDATES', true),
+      watchIssues: readBoolean('GITHUB_WATCH_ISSUES', true),
       perPage: readNumber('GITHUB_PER_PAGE', 50),
     },
   };

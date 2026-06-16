@@ -7,11 +7,11 @@ export const commandDefinitions = [
   },
   {
     name: 'status',
-    description: 'Notion/GitHub 감시 상태를 확인합니다.',
+    description: 'Notion/GitHub PR/Issue 감시 상태를 확인합니다.',
   },
   {
     name: 'sync',
-    description: 'Notion 또는 GitHub 동기화를 즉시 실행합니다.',
+    description: 'Notion 또는 GitHub PR/Issue 동기화를 즉시 실행합니다.',
     options: [
       {
         name: 'target',

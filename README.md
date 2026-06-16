@@ -1,6 +1,6 @@
 # XQUARE Discord Bot
 
-Notion 태스크 데이터베이스와 GitHub PR 변동을 감시해서 Discord 채널에 알려주는 봇입니다.
+Notion 태스크 데이터베이스와 GitHub PR/Issue 변동을 감시해서 Discord 채널에 알려주는 봇입니다.
 
 ## 기능
 
@@ -9,6 +9,8 @@ Notion 태스크 데이터베이스와 GitHub PR 변동을 감시해서 Discord 
 - Notion 페이지 내용만 수정되어도 `last_edited_time` 기반으로 변경 알림
 - GitHub 저장소의 새 PR 감지
 - PR 제목, 상태, draft 여부, 라벨, 담당자, 리뷰어, base/head 브랜치 변경 감지
+- GitHub 저장소의 새 Issue 감지
+- Issue 제목, 상태, 라벨, 담당자, 마일스톤, 댓글 수 변경 감지
 - Discord slash command 지원
   - `/ping`: 봇 응답 확인
   - `/status`: Notion/GitHub 감시 상태 확인
@@ -22,7 +24,7 @@ Notion 태스크 데이터베이스와 GitHub PR 변동을 감시해서 Discord 
 1. Discord Developer Portal에서 Bot을 만들고 토큰을 발급합니다.
 2. Bot 권한으로 `Send Messages`, `Embed Links`, `Use Slash Commands`를 부여합니다.
 3. Notion Integration을 만들고 태스크 데이터베이스에 integration을 초대합니다.
-4. GitHub private repository를 감시하려면 fine-grained token 또는 classic PAT를 준비합니다.
+4. GitHub private repository를 감시하려면 Issues/Pull requests 읽기 권한이 있는 fine-grained token 또는 classic PAT를 준비합니다.
 
 ## 설치
 
@@ -51,7 +53,7 @@ Notion 알림을 쓰려면:
 - `NOTION_TOKEN`
 - `NOTION_DATABASE_ID`
 
-GitHub PR 알림을 쓰려면:
+GitHub PR/Issue 알림을 쓰려면:
 
 - `GITHUB_REPOSITORIES=owner/repo,owner/another-repo`
 - private repository라면 `GITHUB_TOKEN`
@@ -65,9 +67,22 @@ DISCORD_GITHUB_CHANNEL_ID=GITHUB_CHANNEL_ID
 NOTION_ASSIGNEE_PROPERTY=assign
 DISCORD_NOTION_ASSIGNEE_MENTIONS_JSON={"홍길동":"<@USER_ID>","김철수":"<@&ROLE_ID>"}
 DISCORD_GITHUB_REVIEWER_MENTIONS_JSON={"github-login":"<@USER_ID>","another-login":"<@&ROLE_ID>"}
+DISCORD_GITHUB_ISSUE_ASSIGNEE_MENTIONS_JSON={"github-login":"<@USER_ID>","another-login":"<@&ROLE_ID>"}
 ```
 
-`DISCORD_NOTION_CHANNEL_ID`, `DISCORD_GITHUB_CHANNEL_ID`가 비어 있으면 기존 `DISCORD_CHANNEL_ID`로 보냅니다. Notion 멘션은 새 태스크가 추가될 때 `NOTION_ASSIGNEE_PROPERTY`에 지정된 사람과 매칭되는 멘션을 사용하고, 매칭되는 값이 없으면 `DISCORD_MENTION_ON_NOTION`을 사용합니다. GitHub PR 멘션은 요청된 리뷰어의 GitHub 로그인과 매칭되는 멘션을 우선 사용하고, 없으면 `DISCORD_MENTION_ON_GITHUB`를 사용합니다.
+`DISCORD_NOTION_CHANNEL_ID`, `DISCORD_GITHUB_CHANNEL_ID`가 비어 있으면 기존 `DISCORD_CHANNEL_ID`로 보냅니다. Notion 멘션은 새 태스크가 추가될 때 `NOTION_ASSIGNEE_PROPERTY`에 지정된 사람과 매칭되는 멘션을 사용하고, 매칭되는 값이 없으면 `DISCORD_MENTION_ON_NOTION`을 사용합니다. GitHub PR 멘션은 요청된 리뷰어의 GitHub 로그인과 매칭되는 멘션을 우선 사용하고, 없으면 `DISCORD_MENTION_ON_GITHUB`를 사용합니다. GitHub Issue 멘션은 담당자의 GitHub 로그인과 `DISCORD_GITHUB_ISSUE_ASSIGNEE_MENTIONS_JSON`을 우선 매칭하고, 없으면 기존 GitHub reviewer 멘션 맵과 `DISCORD_MENTION_ON_GITHUB` 순서로 fallback합니다.
+
+Issue 감시만 끄고 싶다면:
+
+```env
+GITHUB_WATCH_ISSUES=false
+```
+
+Issue 변경 알림만 끄고 새 Issue 알림은 유지하고 싶다면:
+
+```env
+GITHUB_NOTIFY_ISSUE_UPDATES=false
+```
 
 ## Discord 명령어 등록
 
@@ -113,7 +128,7 @@ NOTION_PRIORITY_PROPERTY=Priority
 
 ## 운영 메모
 
-- 첫 실행 기본값은 기존 Notion 태스크와 기존 GitHub PR을 알림으로 보내지 않습니다.
+- 첫 실행 기본값은 기존 Notion 태스크와 기존 GitHub PR/Issue를 알림으로 보내지 않습니다.
 - 기존 항목도 모두 알림으로 받고 싶다면 `NOTION_NOTIFY_EXISTING_ON_START=true`, `GITHUB_NOTIFY_EXISTING_ON_START=true`로 설정하세요.
 - 알림 상태를 초기화하고 다시 기준을 잡고 싶다면 봇을 끈 뒤 `data/state.json`을 삭제하면 됩니다.
 - Notion API는 페이지 본문 diff를 직접 제공하지 않으므로, 본문만 바뀐 경우에는 "페이지 내용 또는 메타데이터 변경"으로 표시합니다.
