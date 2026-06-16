@@ -1,7 +1,10 @@
 services:
-  xquare-discord-bot:
-    image: ${XQUARE_DISCORD_BOT_IMAGE}
-    container_name: xquare-discord-bot
+  entry-discord-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: entry-discord-bot:${IMAGE_TAG:-latest}
+    container_name: entry-discord-bot
     environment:
       DATA_DIR: /app/data
       APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Seoul}
@@ -38,8 +41,8 @@ services:
       GITHUB_NOTIFY_PR_UPDATES: ${GITHUB_NOTIFY_PR_UPDATES:-true}
       GITHUB_PER_PAGE: ${GITHUB_PER_PAGE:-50}
     volumes:
-      - xquare-discord-bot-data:/app/data
+      - entry-discord-bot-data:/app/data
     restart: unless-stopped
 
 volumes:
-  xquare-discord-bot-data:
+  entry-discord-bot-data:
